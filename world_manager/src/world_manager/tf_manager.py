@@ -30,3 +30,7 @@ class TFManager(object):
 
     def clear_tfs(self):
         self._tfs.clear()
+
+    def remove_tf(self, frame_name):
+        self._tfs.pop(frame_name, None)
+

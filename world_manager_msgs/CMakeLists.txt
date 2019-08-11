@@ -44,6 +44,8 @@ add_message_files(
   FILES
   SceneObject.msg
   SceneBox.msg
+  DynamicObject.msg
+  DynamicBox.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -52,6 +54,9 @@ add_service_files(
    AddMesh.srv
    AddTF.srv
    AddBox.srv
+   AddDynamicBox.srv
+   AddDynamicMesh.srv
+   RemoveObject.srv
  )
 
 ## Generate actions in the 'action' folder

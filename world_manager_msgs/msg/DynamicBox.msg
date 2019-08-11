@@ -1,0 +1,5 @@
+string object_name
+string pose_topic
+float32 edge_length_x
+float32 edge_length_y
+float32 edge_length_z

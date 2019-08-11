@@ -1,0 +1,3 @@
+string object_name
+string mesh_filepath
+string pose_topic

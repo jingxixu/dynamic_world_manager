@@ -24,10 +24,19 @@ class WorldManagerServer:
 
         self.tf_manager = TFManager()
 
+        self.dynamic_pose_listener = {}
+        self.dynamic_pose_stamped = {}
+        self.dynamic_objects = {}
+
         self.clear_planning_scene_service = rospy.Service(
             "/world_manager/clear_objects",
             std_srvs.srv.Empty,
             self.clear_objects_cb)
+
+        self.remove_object_service = rospy.Service(
+            "/world_manager/remove_object",
+            world_manager_msgs.srv.RemoveObject,
+            self.remove_object_cb)
 
         self.add_box = rospy.Service(
             "/world_manager/add_box", world_manager_msgs.srv.AddBox,
@@ -36,6 +45,10 @@ class WorldManagerServer:
         self.add_mesh = rospy.Service(
             "/world_manager/add_mesh", world_manager_msgs.srv.AddMesh,
             self.add_mesh_cb)
+
+        self.add_dynamic_mesh = rospy.Service(
+            "/world_manager/add_dynamic_mesh", world_manager_msgs.srv.AddDynamicMesh,
+            self.add_dynamic_mesh_cb)
 
         self.add_tf_service = rospy.Service(
             "/world_manager/add_tf", world_manager_msgs.srv.AddTF,
@@ -57,11 +70,23 @@ class WorldManagerServer:
         self.tf_manager.add_tf(so.object_name, so.pose_stamped)
 
         # remove the old completion if it is there
-        self.scene.remove_world_object(so.object_name)
+        # self.scene.remove_world_object(so.object_name)
 
         # add the new object to the planning scene
         self.scene.add_mesh(so.object_name, so.pose_stamped,
                             so.mesh_filepath)
+        return []
+
+    def add_dynamic_mesh_cb(self, request):
+        do = request.dynamic_object
+
+        def dynamic_cb(pose_stamped):
+            self.dynamic_pose_stamped[do.object_name] = pose_stamped
+            self.tf_manager.add_tf(do.object_name, pose_stamped)
+
+        self.dynamic_pose_listener[do.object_name] = rospy.Subscriber(do.pose_topic, geometry_msgs.msg.PoseStamped, dynamic_cb, queue_size=1)
+        self.dynamic_objects[do.object_name] = do
+
         return []
 
     def add_box_cb(self, request):
@@ -104,6 +129,17 @@ class WorldManagerServer:
 
         return []
 
+    def remove_object_cb(self, request):
+        body_name = request.object_name
+
+        rospy.loginfo("Removing object: {}".format(body_name))
+        self.scene.remove_world_object(body_name)
+
+        self.tf_manager.remove_tf(body_name)
+
+        return []
+
+
     def add_walls_cb(self, request):
         walls = rospy.get_param('walls')
         for wall_params in walls:
@@ -141,6 +177,14 @@ class WorldManagerServer:
                'w': qw})
         self.scene.add_box(name, back_wall_pose, wall_dimensions)
 
+    def add_dynamic_objects(self):
+        for object_name, ps in self.dynamic_pose_stamped.items():
+            # add the tf
+            self.tf_manager.add_tf(object_name, ps)
+
+            # add the new object to the planning scene
+            self.scene.add_mesh(object_name, ps, self.dynamic_objects[object_name].mesh_filepath)
+
 
 if __name__ == '__main__':
 
@@ -154,6 +198,7 @@ if __name__ == '__main__':
         loop = rospy.Rate(30)
         while not rospy.is_shutdown():
             world_manager_.tf_manager.broadcast_tfs()
+            world_manager_.add_dynamic_objects()
             loop.sleep()
 
         moveit_commander.roscpp_shutdown()
